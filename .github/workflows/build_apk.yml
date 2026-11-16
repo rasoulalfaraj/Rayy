@@ -1,0 +1,99 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.3'
+          channel: 'stable'
+          cache: true
+
+      - name: Generate Android platform files
+        run: flutter create . --platforms=android --org com.rayy.water
+
+      - name: Configure Android Permissions & Desugaring
+        run: |
+          python3 - << 'EOF'
+          import os, re
+
+          # 1. إضافة الصلاحيات إلى AndroidManifest.xml
+          manifest_path = "android/app/src/main/AndroidManifest.xml"
+          with open(manifest_path, "r") as f:
+              manifest = f.read()
+
+          perms = """
+              <uses-permission android:name="android.permission.INTERNET"/>
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+              <uses-permission android:name="android.permission.VIBRATE"/>
+          """
+          manifest = manifest.replace("<application", perms + "\n    <application", 1)
+          with open(manifest_path, "w") as f:
+              f.write(manifest)
+
+          # 2. تفعيل coreLibraryDesugaring المطلوب للإشعارات
+          for gradle_file in ["android/app/build.gradle", "android/app/build.gradle.kts"]:
+              if os.path.exists(gradle_file):
+                  with open(gradle_file, "r") as f:
+                      content = f.read()
+
+                  if gradle_file.endswith(".kts"):
+                      content = content.replace(
+                          "compileOptions {",
+                          "compileOptions {\n        isCoreLibraryDesugaringEnabled = true"
+                      )
+                      if "dependencies {" in content:
+                          content = content.replace(
+                              "dependencies {",
+                              'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")'
+                          )
+                      else:
+                          content += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")\n}\n'
+                  else:
+                      content = content.replace(
+                          "compileOptions {",
+                          "compileOptions {\n        coreLibraryDesugaringEnabled true"
+                      )
+                      if "dependencies {" in content:
+                          content = content.replace(
+                              "dependencies {",
+                              "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'"
+                          )
+                      else:
+                          content += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'\n}\n"
+
+                  with open(gradle_file, "w") as f:
+                      f.write(content)
+          EOF
+
+      - name: Get Flutter dependencies
+        run: flutter pub get
+
+      - name: Build Release APK
+        run: flutter build apk --release
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rayy-Water-Reminder-APK
+          path: build/app/outputs/flutter-apk/app-release.apk

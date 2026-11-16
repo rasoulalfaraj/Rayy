@@ -22,7 +22,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.3'
+          flutter-version: '3.29.2'
           channel: 'stable'
           cache: true
 
@@ -32,7 +32,7 @@ jobs:
       - name: Configure Android Permissions & Desugaring
         run: |
           python3 - << 'EOF'
-          import os, re
+          import os
 
           # 1. إضافة الصلاحيات إلى AndroidManifest.xml
           manifest_path = "android/app/src/main/AndroidManifest.xml"
@@ -65,10 +65,10 @@ jobs:
                       if "dependencies {" in content:
                           content = content.replace(
                               "dependencies {",
-                              'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")'
+                              'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")'
                           )
                       else:
-                          content += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")\n}\n'
+                          content += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
                   else:
                       content = content.replace(
                           "compileOptions {",
@@ -77,10 +77,10 @@ jobs:
                       if "dependencies {" in content:
                           content = content.replace(
                               "dependencies {",
-                              "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'"
+                              "dependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'"
                           )
                       else:
-                          content += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'\n}\n"
+                          content += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'\n}\n"
 
                   with open(gradle_file, "w") as f:
                       f.write(content)
